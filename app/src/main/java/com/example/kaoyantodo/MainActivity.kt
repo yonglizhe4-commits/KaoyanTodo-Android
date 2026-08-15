@@ -9,11 +9,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +28,21 @@ import androidx.compose.ui.unit.sp
 import org.json.JSONArray
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+
+private val Ink = Color(0xFF101014)
+private val Paper = Color(0xFFF4F0E8)
+private val Red = Color(0xFFE51F2A)
+private val Pink = Color(0xFFFF4F73)
+private val Yellow = Color(0xFFFFD83D)
+private val Muted = Color(0xFF6D6870)
+
+private fun subjectOf(title: String): String = when {
+    title.startsWith("英语") || title.contains("单词") || title.contains("阅读") || title.contains("写作") -> "英语"
+    title.startsWith("315") || title.contains("化学") -> "315化学"
+    title.startsWith("415") || title.contains("生理") -> "415生理"
+    title.startsWith("政治") || title.contains("政治") -> "政治"
+    else -> "其他"
+}
 
 data class TodoTask(val id: String, val time: String, val title: String, val detail: String = "")
 data class StudyDay(val day: Int, val date: LocalDate, val tasks: List<TodoTask>)
@@ -67,9 +83,9 @@ object PlanRepository {
         }
         cache = days.keys.sorted().map { d ->
             val fixed = listOf(
-                TodoTask("$d-fixed-1", "07:30", "英语：背单词", "每日固定任务"),
-                TodoTask("$d-fixed-2", "09:00", "所有：网课学习", "每日固定任务"),
-                TodoTask("$d-fixed-3", "22:30", "晚间复盘 15–20 分钟", "记录当天错题、薄弱点和明日首要任务")
+                TodoTask("$d-fixed-1", "07:30", "英语：背单词", "DAILY / START"),
+                TodoTask("$d-fixed-2", "09:00", "所有：网课学习", "DAILY / CORE"),
+                TodoTask("$d-fixed-3", "22:30", "晚间复盘 15–20 分钟", "DAILY / REVIEW")
             )
             StudyDay(d, dates[d] ?: LocalDate.of(2026, 8, 15).plusDays((d - 1).toLong()), fixed + days[d]!!.distinctBy { it.title })
         }
@@ -84,66 +100,94 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KaoyanApp(context: Context) {
     val days = remember { PlanRepository.load(context) }
     val today = LocalDate.now()
     val initial = remember {
         val exact = days.indexOfFirst { it.date == today }
-        if (exact >= 0) exact else {
-            val past = days.indexOfLast { it.date < today }
-            if (past >= 0) past else 0
-        }
+        if (exact >= 0) exact else (days.indexOfLast { it.date < today }.takeIf { it >= 0 } ?: 0)
     }
     var selectedIndex by remember { mutableIntStateOf(initial) }
-    val selected = days[selectedIndex]
+    var refresh by remember { mutableIntStateOf(0) }
     val prefs = remember { context.getSharedPreferences("todo_state", Context.MODE_PRIVATE) }
-    val completed = selected.tasks.count { prefs.getBoolean("${selected.day}:${it.id}", false) }
+    val selected = days[selectedIndex]
+    val completion: (TodoTask) -> Boolean = { task -> prefs.getBoolean("${selected.day}:${task.id}", false) }
+    val doneTasks = selected.tasks.filter(completion)
+    val pendingTasks = selected.tasks.filterNot(completion)
+    val orderedTasks = pendingTasks + doneTasks
+    val overall = remember(refresh) {
+        val all = days.flatMap { it.tasks }
+        if (all.isEmpty()) 0f else all.count { prefs.getBoolean("${days.firstOrNull { d -> d.tasks.contains(it) }?.day}:${it.id}", false) }.toFloat() / all.size
+    }
+    val subjectProgress = remember(refresh) {
+        val all = days.flatMap { it.tasks }
+        listOf("英语", "315化学", "415生理", "政治").associateWith { subject ->
+            val subset = all.filter { subjectOf(it.title) == subject }
+            if (subset.isEmpty()) 0f else subset.count { task ->
+                days.any { d -> d.tasks.any { it.id == task.id } && prefs.getBoolean("${d.day}:${task.id}", false) }
+            }.toFloat() / subset.size
+        }
+    }
+    val completed = doneTasks.size
     val progress = if (selected.tasks.isEmpty()) 0f else completed.toFloat() / selected.tasks.size
 
-    LaunchedEffect(selected.day, completed) {
-        prefs.edit().putInt("widget_day", selected.day).putString("widget_date", "${selected.date.monthValue}月${selected.date.dayOfMonth}日").putInt("widget_done", completed).putInt("widget_total", selected.tasks.size).apply()
+    LaunchedEffect(selected.day, completed, refresh) {
+        prefs.edit().putInt("widget_day", selected.day).putString("widget_date", "${selected.date.monthValue}月${selected.date.dayOfMonth}日").apply()
         TodoWidgetProvider.updateAll(context)
     }
 
-    MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF3157D5), surface = Color(0xFFF7F8FC), background = Color(0xFFF7F8FC))) {
-        Scaffold(containerColor = Color(0xFFF7F8FC), topBar = { CenterAlignedTopAppBar(title = { Text("考研每日计划", fontWeight = FontWeight.Bold) }) }) { padding ->
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    MaterialTheme(colorScheme = lightColorScheme(background = Paper, surface = Paper, onBackground = Ink, onSurface = Ink, primary = Red)) {
+        Box(Modifier.fillMaxSize().background(Paper)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item { HeroHeader(selected, overall, subjectProgress) }
                 item {
-                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF3157D5)), shape = RoundedCornerShape(24.dp)) {
-                        Column(Modifier.padding(20.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text("DAY ${selected.day}", color = Color.White.copy(alpha = .75f), fontSize = 14.sp)
-                                    Text("${selected.date.monthValue}月${selected.date.dayOfMonth}日", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                                }
-                                Text("${(progress * 100).toInt()}%", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(Modifier.height(14.dp))
-                            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp), color = Color.White, trackColor = Color.White.copy(alpha = .25f))
-                            Spacer(Modifier.height(8.dp))
-                            Text("已完成 $completed / ${selected.tasks.size}", color = Color.White.copy(alpha = .9f))
-                        }
-                    }
+                    DayNavigator(selected, today, selectedIndex, days.lastIndex,
+                        onPrev = { if (selectedIndex > 0) selectedIndex-- },
+                        onNext = { if (selectedIndex < days.lastIndex) selectedIndex++ })
                 }
                 item {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(enabled = selectedIndex > 0, onClick = { selectedIndex-- }) { Icon(Icons.Default.ArrowBack, "上一天") }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(if (selected.date == today) "今天" else "计划日", fontWeight = FontWeight.Bold)
-                            Text(DateTimeFormatter.ofPattern("yyyy/MM/dd").format(selected.date), color = Color.Gray, fontSize = 13.sp)
-                        }
-                        IconButton(enabled = selectedIndex < days.lastIndex, onClick = { selectedIndex++ }) { Icon(Icons.Default.ArrowForward, "下一天") }
+                    Text("TODAY / 任务队列", Modifier.padding(horizontal = 18.dp), fontSize = 19.sp, fontWeight = FontWeight.Black, color = Ink)
+                }
+                items(orderedTasks, key = { it.id }) { task ->
+                    val done = completion(task)
+                    TaskCard(task, done) {
+                        prefs.edit().putBoolean("${selected.day}:${task.id}", !done).apply()
+                        refresh++
                     }
                 }
-                item { Text("今日任务", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-                items(selected.tasks, key = { it.id }) { task ->
-                    val isDone = prefs.getBoolean("${selected.day}:${task.id}", false)
-                    TaskCard(task, isDone) {
-                        prefs.edit().putBoolean("${selected.day}:${task.id}", !isDone).apply()
-                        TodoWidgetProvider.updateAll(context)
-                    }
+                item { SubjectBoard(subjectProgress) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeroHeader(selected: StudyDay, overall: Float, subjectProgress: Map<String, Float>) {
+    Column(Modifier.fillMaxWidth().background(Ink).padding(horizontal = 18.dp, vertical = 20.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                Text("PERSONA / STUDY MODE", color = Yellow, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                Text("DAY ${selected.day}", color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Black, letterSpacing = (-2).sp)
+                Text("${selected.date.monthValue}.${selected.date.dayOfMonth}  //  今日作战计划", color = Color.White.copy(.72f), fontSize = 13.sp)
+            }
+            Box(Modifier.size(78.dp).background(Red, CutCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+                Text("${(overall * 100).toInt()}%", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        Text("OVERALL PROGRESS", color = Color.White.copy(.55f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        ProgressBar(overall, Color.White, Red)
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
+            subjectProgress.forEach { (name, p) ->
+                Column(Modifier.weight(1f)) {
+                    Text(name, color = Color.White, fontSize = 10.sp, maxLines = 1)
+                    ProgressBar(p, Color.White.copy(.18f), if (name == "政治") Yellow else Pink)
                 }
             }
         }
@@ -151,17 +195,55 @@ fun KaoyanApp(context: Context) {
 }
 
 @Composable
-fun TaskCard(task: TodoTask, done: Boolean, onToggle: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().clickable { onToggle() }, colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(task.time, color = Color(0xFF3157D5), fontWeight = FontWeight.Bold, modifier = Modifier.width(54.dp))
-            Box(Modifier.size(4.dp, 42.dp).background(if (done) Color(0xFF22C55E) else Color(0xFFE5E7EB), RoundedCornerShape(4.dp)))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(task.title, fontWeight = FontWeight.SemiBold, modifier = Modifier.alpha(if (done) .5f else 1f))
-                if (task.detail.isNotBlank()) Text(task.detail, color = Color.Gray, fontSize = 12.sp)
+private fun ProgressBar(value: Float, track: Color, fill: Color) {
+    Box(Modifier.fillMaxWidth().height(7.dp).background(track, RoundedCornerShape(2.dp))) {
+        Box(Modifier.fillMaxWidth(value.coerceIn(0f, 1f)).fillMaxHeight().background(fill, RoundedCornerShape(2.dp)))
+    }
+}
+
+@Composable
+private fun DayNavigator(selected: StudyDay, today: LocalDate, index: Int, last: Int, onPrev: () -> Unit, onNext: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("${if (selected.date == today) "TODAY" else "PLAN"}  ${DateTimeFormatter.ofPattern("MM / dd").format(selected.date)}", Modifier.weight(1f), fontWeight = FontWeight.Black, color = Red)
+        TextButton(enabled = index > 0, onClick = onPrev) { Icon(Icons.Default.ArrowBack, null); Text(" PREV") }
+        TextButton(enabled = index < last, onClick = onNext) { Text("NEXT "); Icon(Icons.Default.ArrowForward, null) }
+    }
+}
+
+@Composable
+private fun TaskCard(task: TodoTask, done: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 18.dp).background(if (done) Color(0xFFE1DDD4) else Color.White, CutCornerShape(topStart = 2.dp, topEnd = 16.dp, bottomEnd = 2.dp, bottomStart = 16.dp)).clickable { onToggle() }.padding(15.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.width(52.dp)) {
+            Text(task.time, color = Red, fontWeight = FontWeight.Black, fontSize = 12.sp)
+            Text(if (done) "DONE" else "TODO", color = if (done) Color(0xFF16804A) else Muted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        }
+        Box(Modifier.width(4.dp).height(45.dp).background(if (done) Color(0xFF16804A) else Red))
+        Spacer(Modifier.width(13.dp))
+        Column(Modifier.weight(1f)) {
+            Text(task.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.alpha(if (done) .48f else 1f))
+            Text(task.detail, fontSize = 10.sp, color = Muted, fontWeight = FontWeight.Bold)
+        }
+        Box(Modifier.size(34.dp).background(if (done) Color(0xFF16804A) else Ink, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
+            Icon(if (done) Icons.Default.Check else Icons.Default.RadioButtonUnchecked, null, tint = Color.White, modifier = Modifier.size(21.dp))
+        }
+    }
+}
+
+@Composable
+private fun SubjectBoard(progress: Map<String, Float>) {
+    Column(Modifier.padding(horizontal = 18.dp).fillMaxWidth().background(Color.White, CutCornerShape(14.dp)).padding(16.dp)) {
+        Text("SUBJECT STATUS", color = Red, fontSize = 11.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(8.dp))
+        progress.forEach { (name, value) ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(name, Modifier.width(68.dp), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                ProgressBar(value, Color(0xFFE6E2DA), Red)
+                Spacer(Modifier.width(8.dp))
+                Text("${(value * 100).toInt()}%", fontWeight = FontWeight.Black, fontSize = 12.sp)
             }
-            Icon(if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked, null, tint = if (done) Color(0xFF22C55E) else Color(0xFF9CA3AF), modifier = Modifier.size(26.dp))
         }
     }
 }
