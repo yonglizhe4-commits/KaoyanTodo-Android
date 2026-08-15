@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,3 +29,9 @@ jobs:
         with:
           name: KaoyanTodo-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish latest APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest app/build/outputs/apk/debug/app-debug.apk --title "考研每日计划 Latest APK" --notes "离线 Android 每日待办测试版。无需登录、无需联网，支持桌面小组件。"
