@@ -5,16 +5,23 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="14dp"
-    android:background="#101014">
+    android:background="#0B0B10">
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <TextView android:id="@+id/widget_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="考研作战计划" android:textColor="#FFD83D" android:textSize="13sp" android:textStyle="bold" />
-        <TextView android:id="@+id/widget_day" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DAY 1" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" />
+        <TextView android:id="@+id/widget_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="考研作战计划 / MASTER MODE" android:textColor="#FFD83D" android:textSize="11sp" android:textStyle="bold" />
+        <TextView android:id="@+id/widget_day" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DAY 1" android:textColor="#FFFFFF" android:textSize="11sp" android:textStyle="bold" />
     </LinearLayout>
-    <TextView android:id="@+id/widget_progress" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="TODAY 0% · 0 / 0" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" />
-    <ProgressBar android:id="@+id/widget_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="6dp" android:layout_marginTop="7dp" android:max="100" android:progress="0" />
-    <TextView android:id="@+id/widget_task1" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="○ 07:30 英语：背单词" android:textColor="#FFFFFF" android:textSize="12sp" />
-    <TextView android:id="@+id/widget_task2" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="○ 09:00 所有：网课学习" android:textColor="#FFFFFF" android:textSize="12sp" />
-    <TextView android:id="@+id/widget_task3" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="○ 14:00 315化学" android:textColor="#FFFFFF" android:textSize="12sp" />
-    <TextView android:id="@+id/widget_task4" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="○ 16:00 415生理" android:textColor="#FFFFFF" android:textSize="12sp" />
-    <TextView android:id="@+id/widget_task5" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="○ 19:00 政治" android:textColor="#FFFFFF" android:textSize="12sp" />
+    <TextView android:id="@+id/widget_progress" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="考研总进度 0%" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" />
+    <ProgressBar android:id="@+id/widget_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="6dp" android:layout_marginTop="6dp" android:max="100" android:progress="0" />
+    <TextView android:id="@+id/widget_today" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="今日完成 0% · 0 / 0" android:textColor="#FF477E" android:textSize="10sp" android:textStyle="bold" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="7dp">
+        <TextView android:id="@+id/widget_subject1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="英语 0%" android:textColor="#FFFFFF" android:textSize="8sp" />
+        <TextView android:id="@+id/widget_subject2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="315化学 0%" android:textColor="#FFFFFF" android:textSize="8sp" />
+        <TextView android:id="@+id/widget_subject3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="415生理 0%" android:textColor="#FFFFFF" android:textSize="8sp" />
+        <TextView android:id="@+id/widget_subject4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="政治 0%" android:textColor="#FFD83D" android:textSize="8sp" />
+    </LinearLayout>
+    <TextView android:id="@+id/widget_task1" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:text="○ 07:30 英语：背单词" android:textColor="#FFFFFF" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/widget_task2" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="○ 09:00 全科：网课学习" android:textColor="#FFFFFF" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/widget_task3" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="○ 14:00 315化学" android:textColor="#FFFFFF" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/widget_task4" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="○ 16:00 415生理" android:textColor="#FFFFFF" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/widget_task5" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="○ 19:00 政治" android:textColor="#FFFFFF" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
 </LinearLayout>
