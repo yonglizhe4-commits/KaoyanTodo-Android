@@ -63,36 +63,70 @@ object PlanRepository {
 
     fun load(context: Context): List<StudyDay> {
         cache?.let { return it }
+
         val raw = context.assets.open("plan.json").bufferedReader(Charsets.UTF_8).use { it.readText() }
-        val arr = JSONArray(raw)
-        val result = mutableListOf<StudyDay>()
-        for (i in 0 until arr.length()) {
-            val obj = arr.getJSONObject(i)
-            val day = obj.getInt("day")
-            val date = LocalDate.parse(obj.getString("date"))
-            val rawTasks = obj.getJSONArray("tasks")
-            val tasks = mutableListOf<TodoTask>()
-            val defaults = listOf(
-                TodoTask("$day-default-1", "07:30", "英语：背单词", "DAILY / START"),
-                TodoTask("$day-default-2", "09:00", "全科：网课学习", "DAILY / CORE"),
-                TodoTask("$day-default-3", "22:30", "晚间复盘 15–20 分钟", "DAILY / REVIEW")
-            )
-            tasks += defaults
-            for (j in 0 until rawTasks.length()) {
-                val title = rawTasks.getString(j)
-                val time = when {
-                    title.startsWith("英语") || title.contains("长难句") -> "10:30"
-                    title.startsWith("315") || title.contains("化学") -> "14:00"
-                    title.startsWith("415") || title.contains("生理") || title.contains("生化") -> "16:30"
-                    title.startsWith("政治") -> "19:00"
-                    title.contains("晚上") || title.contains("晚间") || title.contains("复盘") -> "22:00"
-                    else -> "20:00"
-                }
-                tasks += TodoTask("$day-$j", time, title)
-            }
-            result += StudyDay(day, date, tasks.distinctBy { it.title })
+        val root = JSONArray(raw)
+        val matrix = root.getJSONObject(0).getJSONArray("tasks")
+
+        val explicitDates = mutableMapOf<Int, LocalDate>()
+        val taskBuckets = mutableMapOf<Int, MutableList<TodoTask>>()
+        var maxCols = 0
+
+        for (r in 0 until matrix.length()) {
+            maxCols = maxOf(maxCols, matrix.getJSONArray(r).length())
         }
-        return result.sortedBy { it.day }.also { cache = it }
+
+        for (c in 1 until maxCols) {
+            var currentDay = -1
+            for (r in 0 until matrix.length()) {
+                val row = matrix.getJSONArray(r)
+                if (c >= row.length()) continue
+                val value = row.optString(c, "").trim()
+                if (value.isEmpty()) continue
+
+                val marker = Regex("^Day\\s*(\\d+)\\s*[｜|]\\s*(\\d+)月(\\d+)日$").find(value)
+                if (marker != null) {
+                    currentDay = marker.groupValues[1].toInt()
+                    val month = marker.groupValues[2].toInt()
+                    val dayOfMonth = marker.groupValues[3].toInt()
+                    explicitDates[currentDay] = LocalDate.of(2026, month, dayOfMonth)
+                    taskBuckets.getOrPut(currentDay) { mutableListOf() }
+                    continue
+                }
+
+                if (currentDay > 0 && !value.startsWith("Day ")) {
+                    val time = when {
+                        value.startsWith("英语") || value.contains("长难句") -> "10:30"
+                        value.startsWith("315") || value.contains("化学") -> "14:00"
+                        value.startsWith("415") || value.contains("生理") || value.contains("生化") -> "16:30"
+                        value.startsWith("政治") -> "19:00"
+                        value.contains("晚上") || value.contains("晚间") || value.contains("复盘") -> "22:00"
+                        else -> "20:00"
+                    }
+                    taskBuckets.getOrPut(currentDay) { mutableListOf() }
+                        .add(TodoTask("$currentDay-$c-$r", time, value))
+                }
+            }
+        }
+
+        val maxDay = explicitDates.keys.maxOrNull() ?: 128
+        val anchor = LocalDate.of(2026, 8, 15)
+
+        cache = (1..maxDay).map { d ->
+            val expectedDate = anchor.plusDays((d - 1).toLong())
+            val fixed = listOf(
+                TodoTask("$d-default-1", "07:30", "英语：背单词", "DAILY / START"),
+                TodoTask("$d-default-2", "09:00", "全科：网课学习", "DAILY / CORE"),
+                TodoTask("$d-default-3", "22:30", "晚间复盘 15–20 分钟", "DAILY / REVIEW")
+            )
+            StudyDay(
+                day = d,
+                date = expectedDate,
+                tasks = (fixed + taskBuckets[d].orEmpty()).distinctBy { it.title }
+            )
+        }
+
+        return cache!!
     }
 }
 
