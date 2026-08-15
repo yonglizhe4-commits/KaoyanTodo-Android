@@ -24,7 +24,12 @@ class TodoWidgetProvider : AppWidgetProvider() {
                 val all = days.flatMap { d -> d.tasks.map { d to it } }
                 val overallDone = all.count { done(it.first, it.second) }
                 val overallPct = if (all.isEmpty()) 0 else overallDone * 100 / all.size
-                val subjectRows = listOf("英语" to R.id.widget_subject1, "315化学" to R.id.widget_subject2, "415生理" to R.id.widget_subject3, "政治" to R.id.widget_subject4)
+                val subjectRows = listOf(
+                    "英语" to R.id.widget_subject1,
+                    "315化学" to R.id.widget_subject2,
+                    "415生理生化" to R.id.widget_subject3,
+                    "政治" to R.id.widget_subject4
+                )
                 views.setTextViewText(R.id.widget_title, "考研作战计划  /  MASTER MODE")
                 views.setTextViewText(R.id.widget_day, "DAY ${selected.day} · ${selected.date.monthValue}.${selected.date.dayOfMonth}")
                 views.setTextViewText(R.id.widget_progress, "考研总进度  $overallPct%")
