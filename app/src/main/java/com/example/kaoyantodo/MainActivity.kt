@@ -24,8 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.glance.appwidget.updateAll
-import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -103,11 +101,10 @@ fun KaoyanApp(context: Context) {
     val prefs = remember { context.getSharedPreferences("todo_state", Context.MODE_PRIVATE) }
     val completed = selected.tasks.count { prefs.getBoolean("${selected.day}:${it.id}", false) }
     val progress = if (selected.tasks.isEmpty()) 0f else completed.toFloat() / selected.tasks.size
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(selected.day, completed) {
         prefs.edit().putInt("widget_day", selected.day).putString("widget_date", "${selected.date.monthValue}月${selected.date.dayOfMonth}日").putInt("widget_done", completed).putInt("widget_total", selected.tasks.size).apply()
-        TodoWidget.updateAll(context)
+        TodoWidgetProvider.updateAll(context)
     }
 
     MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF3157D5), surface = Color(0xFFF7F8FC), background = Color(0xFFF7F8FC))) {
@@ -145,7 +142,7 @@ fun KaoyanApp(context: Context) {
                     val isDone = prefs.getBoolean("${selected.day}:${task.id}", false)
                     TaskCard(task, isDone) {
                         prefs.edit().putBoolean("${selected.day}:${task.id}", !isDone).apply()
-                        scope.launch { TodoWidget.updateAll(context) }
+                        TodoWidgetProvider.updateAll(context)
                     }
                 }
             }
