@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -112,6 +113,7 @@ private fun KaoyanApp(context: Context) {
             ?: 0
     }
     val pagerState = rememberPagerState(initialPage = startIndex, pageCount = { days.size })
+    val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("todo_state", Context.MODE_PRIVATE) }
     var refresh by remember { mutableIntStateOf(0) }
 
@@ -174,12 +176,22 @@ private fun KaoyanApp(context: Context) {
                 },
                 onPrev = {
                     if (pagerState.currentPage > 0) {
-                        LaunchedEffect(Unit) {}
+                        scope.launch {
+                            pagerState.animateScrollToPage(
+                                pagerState.currentPage - 1,
+                                animationSpec = tween(520, easing = FastOutSlowInEasing)
+                            )
+                        }
                     }
                 },
                 onNext = {
                     if (pagerState.currentPage < days.lastIndex) {
-                        LaunchedEffect(Unit) {}
+                        scope.launch {
+                            pagerState.animateScrollToPage(
+                                pagerState.currentPage + 1,
+                                animationSpec = tween(520, easing = FastOutSlowInEasing)
+                            )
+                        }
                     }
                 }
             )
@@ -219,7 +231,7 @@ private fun DayScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { ArtHeader(day, overall, subjectProgress, pageOffset) }
-        item { DateRibbon(day, today, onPrev, onNext) }
+        item { DateRibbon(day, today, day.day > 1, day.day < 128, onPrev, onNext) }
         item {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 18.dp),
@@ -332,7 +344,14 @@ private fun ArtHeader(
 }
 
 @Composable
-private fun DateRibbon(day: StudyDay, today: LocalDate, onPrev: () -> Unit, onNext: () -> Unit) {
+private fun DateRibbon(
+    day: StudyDay,
+    today: LocalDate,
+    canPrev: Boolean,
+    canNext: Boolean,
+    onPrev: () -> Unit,
+    onNext: () -> Unit
+) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -341,9 +360,13 @@ private fun DateRibbon(day: StudyDay, today: LocalDate, onPrev: () -> Unit, onNe
             Text(if (day.date == today) "TODAY" else "PLAN DATE", color = Red, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             Text(day.date.format(DateTimeFormatter.ofPattern("yyyy / MM / dd")), color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black)
         }
-        IconButton(onClick = onPrev) { Icon(Icons.Default.ArrowBack, null, tint = Ink) }
+        IconButton(enabled = canPrev, onClick = onPrev) {
+            Icon(Icons.Default.ArrowBack, null, tint = if (canPrev) Ink else Muted.copy(.25f))
+        }
         Text("SWIPE", modifier = Modifier.padding(horizontal = 3.dp), color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-        IconButton(onClick = onNext) { Icon(Icons.Default.ArrowForward, null, tint = Ink) }
+        IconButton(enabled = canNext, onClick = onNext) {
+            Icon(Icons.Default.ArrowForward, null, tint = if (canNext) Ink else Muted.copy(.25f))
+        }
     }
 }
 
