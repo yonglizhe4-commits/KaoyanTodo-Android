@@ -4,8 +4,6 @@ import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -158,14 +156,13 @@ fun KaoyanApp(context: Context) {
                 }
             }
             item { SubjectBoard(subjectProgress) }
-            item { Text("完成任务会自动沉底，并带有完成状态反馈。", modifier = Modifier.padding(horizontal = 18.dp), color = Muted, fontSize = 11.sp) }
+            item { Text("✓ 完成后自动沉底 · 再次点击可撤销", modifier = Modifier.padding(horizontal = 18.dp), color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
         }
     }
 }
 
 @Composable
 private fun HeroHeader(selected: StudyDay, overall: Float, subjectProgress: Map<String, Float>) {
-    val animated = animateFloatAsState(overall, label = "overall")
     Column(Modifier.fillMaxWidth().background(Ink).padding(horizontal = 18.dp, vertical = 20.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
@@ -174,13 +171,13 @@ private fun HeroHeader(selected: StudyDay, overall: Float, subjectProgress: Map<
                 Text("${selected.date.monthValue}.${selected.date.dayOfMonth}  //  今日作战计划", color = Color.White.copy(.72f), fontSize = 13.sp)
             }
             Box(Modifier.size(82.dp).background(Red, CutCornerShape(16.dp)), contentAlignment = Alignment.Center) {
-                Text("${(animated.value * 100).toInt()}%", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                Text("${(overall * 100).toInt()}%", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
             }
         }
         Spacer(Modifier.height(18.dp))
         Text("EXAMINATION MASTER PROGRESS", color = Color.White.copy(.52f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(5.dp))
-        ProgressBar(animated.value, Color.White.copy(.18f), Red, 8.dp)
+        ProgressBar(overall, Color.White.copy(.18f), Red, 8.dp)
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
             subjectProgress.forEach { (name, p) ->
@@ -214,10 +211,8 @@ private fun DayNavigator(selected: StudyDay, today: LocalDate, index: Int, last:
 
 @Composable
 private fun TaskCard(task: TodoTask, done: Boolean, onToggle: () -> Unit) {
-    val alpha by animateFloatAsState(if (done) .52f else 1f, label = "taskAlpha")
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 18.dp)
-            .animateContentSize()
             .background(if (done) Color(0xFFE1DDD4) else Color.White, CutCornerShape(topStart = 2.dp, topEnd = 18.dp, bottomEnd = 2.dp, bottomStart = 18.dp))
             .clickable { onToggle() }.padding(15.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -229,7 +224,7 @@ private fun TaskCard(task: TodoTask, done: Boolean, onToggle: () -> Unit) {
         Box(Modifier.width(4.dp).height(49.dp).background(if (done) Green else Red))
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
-            Text(task.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.alpha(alpha))
+            Text(task.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.alpha(if (done) .52f else 1f))
             Text(task.detail, fontSize = 10.sp, color = Muted, fontWeight = FontWeight.Bold)
         }
         Box(Modifier.size(36.dp).background(if (done) Green else Ink, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
