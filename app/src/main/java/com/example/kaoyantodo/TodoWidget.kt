@@ -1,8 +1,6 @@
 package com.example.kaoyantodo
 
 import android.content.Context
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.appwidget.GlanceAppWidget
@@ -21,25 +19,28 @@ import androidx.glance.unit.dp
 import androidx.glance.unit.sp
 
 object TodoWidget : GlanceAppWidget() {
-    override suspend fun provideGlance(context: Context, id: GlanceId) { provideContent { Content(context) } }
-
-    @Composable
-    private fun Content(context: Context) {
-        val p = context.getSharedPreferences("todo_state", Context.MODE_PRIVATE)
-        val day = p.getInt("widget_day", todayDay())
-        val date = p.getString("widget_date", "") ?: ""
-        val done = p.getInt("widget_done", 0)
-        val total = p.getInt("widget_total", 0)
-        Column(GlanceModifier.fillMaxSize().background(ColorProvider(Color(0xFF3157D5))).padding(16.dp)) {
-            Text("考研每日计划", style = TextStyle(color = ColorProvider(Color.White), fontSize = 16.sp))
-            Spacer(GlanceModifier.height(4.dp))
-            Text("Day $day · $date", style = TextStyle(color = ColorProvider(Color.White), fontSize = 22.sp))
-            Spacer(GlanceModifier.height(8.dp))
-            Text("今日完成：$done / $total", style = TextStyle(color = ColorProvider(Color.White), fontSize = 14.sp))
-            Spacer(GlanceModifier.height(6.dp))
-            Text("点击桌面组件即可进入 App", style = TextStyle(color = ColorProvider(Color.White), fontSize = 12.sp))
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        provideContent {
+            val prefs = context.getSharedPreferences("todo_state", Context.MODE_PRIVATE)
+            val day = prefs.getInt("widget_day", 1)
+            val date = prefs.getString("widget_date", "8月15日") ?: "8月15日"
+            val done = prefs.getInt("widget_done", 0)
+            val total = prefs.getInt("widget_total", 0)
+            Column(
+                modifier = GlanceModifier.fillMaxSize().background(ColorProvider(android.graphics.Color.rgb(49, 87, 213), android.graphics.Color.rgb(49, 87, 213))).padding(16.dp)
+            ) {
+                Text("考研每日计划", style = TextStyle(color = ColorProvider(android.graphics.Color.WHITE, android.graphics.Color.WHITE), fontSize = 16.sp))
+                Spacer(GlanceModifier.height(4.dp))
+                Text("Day $day · $date", style = TextStyle(color = ColorProvider(android.graphics.Color.WHITE, android.graphics.Color.WHITE), fontSize = 22.sp))
+                Spacer(GlanceModifier.height(8.dp))
+                Text("今日完成：$done / $total", style = TextStyle(color = ColorProvider(android.graphics.Color.WHITE, android.graphics.Color.WHITE), fontSize = 14.sp))
+                Spacer(GlanceModifier.height(6.dp))
+                Text("点击桌面组件进入 App", style = TextStyle(color = ColorProvider(android.graphics.Color.WHITE, android.graphics.Color.WHITE), fontSize = 12.sp))
+            }
         }
     }
 }
 
-class TodoWidgetReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget: GlanceAppWidget = TodoWidget }
+class TodoWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = TodoWidget
+}
