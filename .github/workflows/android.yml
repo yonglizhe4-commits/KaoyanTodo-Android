@@ -26,6 +26,17 @@ jobs:
         run: |
           set -o pipefail
           gradle :app:assembleDebug --stacktrace --console=plain 2>&1 | tee build.log
+      - name: Sign APK for Android installation
+        run: |
+          set -e
+          echo "${{ secrets.KAOYAN_RELEASE_KEYSTORE_B64 }}" | base64 -d > kaoyan-release.jks
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          ZIPALIGN=$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)
+          "$ZIPALIGN" -f app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/app-signed-unaligned.apk
+          "$APKSIGNER" sign --ks kaoyan-release.jks --ks-key-alias kaoyan --ks-pass pass:changeit --key-pass pass:changeit --out app/build/outputs/apk/debug/app-signed.apk app/build/outputs/apk/debug/app-signed-unaligned.apk
+          "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/debug/app-signed.apk
+          rm -f app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/app-signed-unaligned.apk
+          mv app/build/outputs/apk/debug/app-signed.apk app/build/outputs/apk/debug/app-debug.apk
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,4 +55,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest app/build/outputs/apk/debug/app-debug.apk --title "考研每日计划 Latest APK" --notes "离线 Android 每日待办。无登录、无联网；包含即时勾选沉底、考研总进度、各科进度和桌面小组件。"
+          gh release create latest app/build/outputs/apk/debug/app-debug.apk --title "考研每日计划 Latest APK" --notes "离线 Android 每日待办。无登录、无联网；包含即时勾选沉底、考研总进度、各科进度和桌面小组件。此版本为已签名安装包。"
