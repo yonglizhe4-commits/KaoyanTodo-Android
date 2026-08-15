@@ -23,15 +23,25 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebug --stacktrace --console=plain 2>&1 | tee build.log
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaoyanTodo-build-log
+          path: build.log
       - name: Upload APK artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: KaoyanTodo-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
       - name: Publish latest APK release
+        if: success()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest app/build/outputs/apk/debug/app-debug.apk --title "考研每日计划 Latest APK" --notes "离线 Android 每日待办测试版。无需登录、无需联网，支持桌面小组件。"
+          gh release create latest app/build/outputs/apk/debug/app-debug.apk --title "考研每日计划 Latest APK" --notes "离线 Android 每日待办。无登录、无联网；包含即时勾选沉底、考研总进度、各科进度和桌面小组件。"
