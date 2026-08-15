@@ -16,4 +16,6 @@
 Excel 原表没有给每项任务提供具体时钟时间，因此 V1 根据任务类型建立了可执行的默认时间轴：07:30 单词、09:00 网课、10:30 英语、14:00 315、16:00 415、19:00 政治、22:00 晚间任务、22:30 复盘。后续可以把这些默认时间改成你的真实作息。
 
 ## 构建
-GitHub Actions 会在 `main` 分支提交或手动运行时执行 `gradle :app:assembleDebug`，并上传 APK artifact，同时更新 `latest-debug` 预发布 Release。
+GitHub Actions 会在 `main` 分支提交或手动运行时执行 `gradle :app:assembleDebug`，并上传 APK artifact。
+
+Build pipeline initialized on 2026-08-15.
