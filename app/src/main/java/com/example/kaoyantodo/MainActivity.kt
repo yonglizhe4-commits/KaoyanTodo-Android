@@ -64,15 +64,15 @@ object PlanRepository {
         val raw = context.assets.open("plan.json").bufferedReader(Charsets.UTF_8).use { it.readText() }
         val root = JSONArray(raw)
         val matrix = root.getJSONObject(0).getJSONArray("tasks")
-        val days = linkedMapOf<Int, MutableList<TodoTask>>()
-        val dates = mutableMapOf<Int, LocalDate>()
+        val dayTasks = linkedMapOf<Int, MutableList<TodoTask>>()
+        var maxDay = 1
+        var baseDate: LocalDate? = null
         var maxCols = 0
+
         for (r in 0 until matrix.length()) {
             maxCols = maxOf(maxCols, matrix.getJSONArray(r).length())
         }
 
-        // Walk every populated Excel column. Every "Day X｜M月D日" cell is the authoritative
-        // boundary for the following tasks in that column, so no days are skipped or fabricated.
         for (c in 1 until maxCols) {
             var currentDay = -1
             for (r in 0 until matrix.length()) {
@@ -81,11 +81,14 @@ object PlanRepository {
                 val value = row.optString(c, "").trim()
                 if (value.isEmpty()) continue
 
-                val dayMatch = Regex("Day\\s*(\\d+)\\s*[｜|]\\s*(\\d+)月(\\d+)日").find(value)
-                if (dayMatch != null) {
-                    currentDay = dayMatch.groupValues[1].toInt()
-                    dates[currentDay] = LocalDate.of(2026, dayMatch.groupValues[2].toInt(), dayMatch.groupValues[3].toInt())
-                    days.getOrPut(currentDay) { mutableListOf() }
+                val marker = Regex("Day\\s*(\\d+)\\s*[｜|]\\s*(\\d+)月(\\d+)日").find(value)
+                if (marker != null) {
+                    currentDay = marker.groupValues[1].toInt()
+                    maxDay = maxOf(maxDay, currentDay)
+                    if (baseDate == null) {
+                        baseDate = LocalDate.of(2026, marker.groupValues[2].toInt(), marker.groupValues[3].toInt())
+                    }
+                    dayTasks.getOrPut(currentDay) { mutableListOf() }
                     continue
                 }
 
@@ -98,14 +101,14 @@ object PlanRepository {
                         value.contains("晚上") || value.contains("晚间") -> "22:00"
                         else -> "20:00"
                     }
-                    days.getOrPut(currentDay) { mutableListOf() }
+                    dayTasks.getOrPut(currentDay) { mutableListOf() }
                         .add(TodoTask("$currentDay-$c-$r", time, value))
                 }
             }
         }
 
-        val sortedDays = days.keys.sorted()
-        cache = sortedDays.map { d ->
+        val firstDate = baseDate ?: LocalDate.of(2026, 8, 15)
+        val allDays = (1..maxDay).map { d ->
             val fixed = listOf(
                 TodoTask("$d-fixed-1", "07:30", "英语：背单词", "DAILY / START"),
                 TodoTask("$d-fixed-2", "09:00", "全科：网课学习", "DAILY / CORE"),
@@ -113,11 +116,13 @@ object PlanRepository {
             )
             StudyDay(
                 day = d,
-                date = dates.getValue(d),
-                tasks = fixed + days.getValue(d).distinctBy { it.title }
+                // Day is the source of truth for navigation: every day advances exactly one calendar day.
+                date = firstDate.plusDays((d - 1).toLong()),
+                tasks = fixed + dayTasks[d].orEmpty().distinctBy { it.title }
             )
         }
-        return cache!!
+        cache = allDays
+        return allDays
     }
 }
 
@@ -143,9 +148,6 @@ fun KaoyanApp(context: Context) {
     val prefs = remember { context.getSharedPreferences("todo_state", Context.MODE_PRIVATE) }
     val selected = days[selectedIndex]
     val isDone: (StudyDay, TodoTask) -> Boolean = { day, task -> prefs.getBoolean("${day.day}:${task.id}", false) }
-    val doneTasks = selected.tasks.filter { isDone(selected, it) }
-    val pendingTasks = selected.tasks.filterNot { isDone(selected, it) }
-    val orderedTasks = pendingTasks + doneTasks
     val allTasks = days.flatMap { d -> d.tasks.map { d to it } }
     val overall = if (allTasks.isEmpty()) 0f else allTasks.count { isDone(it.first, it.second) }.toFloat() / allTasks.size
     val subjectProgress = listOf("英语", "315化学", "415生理生化", "政治").associateWith { subject ->
@@ -153,7 +155,7 @@ fun KaoyanApp(context: Context) {
         if (subset.isEmpty()) 0f else subset.count { isDone(it.first, it.second) }.toFloat() / subset.size
     }
 
-    LaunchedEffect(selected.day, doneTasks.size, refresh) {
+    LaunchedEffect(selected.day, refresh) {
         prefs.edit()
             .putInt("widget_day", selected.day)
             .putString("widget_date", "${selected.date.monthValue}月${selected.date.dayOfMonth}日")
@@ -166,14 +168,18 @@ fun KaoyanApp(context: Context) {
             targetState = selectedIndex,
             transitionSpec = {
                 val enter = if (navigationDirection > 0) {
-                    slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(420, easing = FastOutSlowInEasing)) + fadeIn(tween(220))
+                    slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(460, easing = FastOutSlowInEasing)) +
+                        fadeIn(tween(260))
                 } else {
-                    slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(420, easing = FastOutSlowInEasing)) + fadeIn(tween(220))
+                    slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(460, easing = FastOutSlowInEasing)) +
+                        fadeIn(tween(260))
                 }
                 val exit = if (navigationDirection > 0) {
-                    slideOutHorizontally(targetOffsetX = { -it / 3 }, animationSpec = tween(420, easing = FastOutSlowInEasing)) + fadeOut(tween(180))
+                    slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(460, easing = FastOutSlowInEasing)) +
+                        fadeOut(tween(220))
                 } else {
-                    slideOutHorizontally(targetOffsetX = { it / 3 }, animationSpec = tween(420, easing = FastOutSlowInEasing)) + fadeOut(tween(180))
+                    slideOutHorizontally(targetOffsetX = { it / 4 }, animationSpec = tween(460, easing = FastOutSlowInEasing)) +
+                        fadeOut(tween(220))
                 }
                 ContentTransform(enter, exit)
             },
@@ -181,16 +187,18 @@ fun KaoyanApp(context: Context) {
         ) { animatedIndex ->
             val day = days[animatedIndex]
             StudyDayPage(
-                context = context,
                 day = day,
                 today = today,
                 index = animatedIndex,
                 lastIndex = days.lastIndex,
-                allDays = days,
                 isDone = isDone,
                 overall = overall,
                 subjectProgress = subjectProgress,
-                orderedTasks = if (animatedIndex == selectedIndex) orderedTasks else day.tasks,
+                orderedTasks = if (animatedIndex == selectedIndex) {
+                    val done = day.tasks.filter { isDone(day, it) }
+                    val pending = day.tasks.filterNot { isDone(day, it) }
+                    pending + done
+                } else day.tasks,
                 onPrev = {
                     if (selectedIndex > 0) {
                         navigationDirection = -1
@@ -214,12 +222,10 @@ fun KaoyanApp(context: Context) {
 
 @Composable
 private fun StudyDayPage(
-    context: Context,
     day: StudyDay,
     today: LocalDate,
     index: Int,
     lastIndex: Int,
-    allDays: List<StudyDay>,
     isDone: (StudyDay, TodoTask) -> Boolean,
     overall: Float,
     subjectProgress: Map<String, Float>,
@@ -237,9 +243,7 @@ private fun StudyDayPage(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item { HeroHeader(day, overall, subjectProgress) }
-        item {
-            DayNavigator(day, today, index, lastIndex, onPrev, onNext)
-        }
+        item { DayNavigator(day, today, index, lastIndex, onPrev, onNext) }
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
@@ -255,7 +259,7 @@ private fun StudyDayPage(
         }
         item { SubjectBoard(subjectProgress) }
         item {
-            Text("✓ 完成后自动沉底 · 页面切换采用连贯滑动转场", modifier = Modifier.padding(horizontal = 18.dp), color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("✓ 完成后自动沉底 · 左右切换为连贯滑动转场", modifier = Modifier.padding(horizontal = 18.dp), color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -304,7 +308,7 @@ private fun DayNavigator(selected: StudyDay, today: LocalDate, index: Int, lastI
     Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(if (selected.date == today) "TODAY" else "PLAN", color = Red, fontWeight = FontWeight.Black, fontSize = 11.sp)
-            Text(DateTimeFormatter.ofPattern("yyyy / MM / dd").format(selected.date), color = Ink, fontWeight = FontWeight.Black, fontSize = 13.sp)
+            Text("DAY ${selected.day}  ·  ${DateTimeFormatter.ofPattern("yyyy / MM / dd").format(selected.date)}", color = Ink, fontWeight = FontWeight.Black, fontSize = 13.sp)
         }
         TextButton(enabled = index > 0, onClick = onPrev) { Icon(Icons.Default.ArrowBack, null); Text(" PREV") }
         TextButton(enabled = index < lastIndex, onClick = onNext) { Text("NEXT "); Icon(Icons.Default.ArrowForward, null) }
