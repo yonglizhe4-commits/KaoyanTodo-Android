@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.time.LocalDate
@@ -90,9 +91,14 @@ class MainActivity : ComponentActivity() {
 fun KaoyanApp(context: Context) {
     val days = remember { PlanRepository.load(context) }
     val today = LocalDate.now()
-    val initial = remember { days.indexOfFirst { it.date == today }.let { if (it >= 0) it else days.indexOfLast { it.date < today }.let { if (it < 0) 0 else it }) }
+    val initial = remember {
+        val exact = days.indexOfFirst { it.date == today }
+        if (exact >= 0) exact else {
+            val past = days.indexOfLast { it.date < today }
+            if (past >= 0) past else 0
+        }
+    }
     var selectedIndex by remember { mutableIntStateOf(initial) }
-    var version by remember { mutableIntStateOf(0) }
     val selected = days[selectedIndex]
     val prefs = remember { context.getSharedPreferences("todo_state", Context.MODE_PRIVATE) }
     val completed = selected.tasks.count { prefs.getBoolean("${selected.day}:${it.id}", false) }
@@ -139,7 +145,6 @@ fun KaoyanApp(context: Context) {
                     val isDone = prefs.getBoolean("${selected.day}:${task.id}", false)
                     TaskCard(task, isDone) {
                         prefs.edit().putBoolean("${selected.day}:${task.id}", !isDone).apply()
-                        version++
                         scope.launch { TodoWidget.updateAll(context) }
                     }
                 }
