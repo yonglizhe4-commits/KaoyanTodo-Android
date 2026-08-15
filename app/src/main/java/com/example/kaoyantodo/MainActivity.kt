@@ -38,7 +38,7 @@ private val Yellow = Color(0xFFFFD83D)
 private val Green = Color(0xFF13A866)
 private val Muted = Color(0xFF777078)
 
-private fun subjectOf(title: String): String = when {
+fun subjectOf(title: String): String = when {
     title.startsWith("英语") || title.contains("单词") || title.contains("阅读") || title.contains("写作") -> "英语"
     title.startsWith("315") || title.contains("化学") -> "315化学"
     title.startsWith("415") || title.contains("生理") -> "415生理"
